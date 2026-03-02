@@ -20,11 +20,27 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const spotsLeft = details.max_participants - details.participants.length;
 
+        // build participant list markup
+        let participantsMarkup = "";
+        if (details.participants && details.participants.length > 0) {
+          participantsMarkup = `
+            <div class="participants-section">
+              <strong>Participants:</strong>
+              <ul class="participants-list">
+                ${details.participants.map(p =>
+                  `<li>${p} <span class="delete-participant" data-activity="${name}" data-email="${p}">&times;</span></li>`
+                ).join("")}
+              </ul>
+            </div>
+          `;
+        }
+
         activityCard.innerHTML = `
           <h4>${name}</h4>
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          ${participantsMarkup}
         `;
 
         activitiesList.appendChild(activityCard);
@@ -62,6 +78,7 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        fetchActivities(); // update UI with new participant
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
@@ -78,6 +95,37 @@ document.addEventListener("DOMContentLoaded", () => {
       messageDiv.className = "error";
       messageDiv.classList.remove("hidden");
       console.error("Error signing up:", error);
+    }
+  });
+
+  // Attach event delegation for delete buttons
+  activitiesList.addEventListener("click", async (event) => {
+    if (event.target.matches(".delete-participant")) {
+      const activityName = event.target.dataset.activity;
+      const email = event.target.dataset.email;
+
+      try {
+        const resp = await fetch(
+          `/activities/${encodeURIComponent(activityName)}/participants?email=${encodeURIComponent(email)}`,
+          { method: "DELETE" }
+        );
+        const result = await resp.json();
+        if (resp.ok) {
+          messageDiv.textContent = result.message;
+          messageDiv.className = "success";
+          fetchActivities(); // refresh list
+        } else {
+          messageDiv.textContent = result.detail || "Failed to remove participant";
+          messageDiv.className = "error";
+        }
+      } catch (err) {
+        messageDiv.textContent = "Error removing participant";
+        messageDiv.className = "error";
+        console.error(err);
+      }
+
+      messageDiv.classList.remove("hidden");
+      setTimeout(() => messageDiv.classList.add("hidden"), 5000);
     }
   });
 
